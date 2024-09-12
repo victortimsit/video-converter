@@ -1,11 +1,10 @@
 "use client";
 
-import { fetchFile } from "@ffmpeg/util";
+import dynamic from "next/dynamic";
 import { useState } from "react";
-import { v4 as uuidv4 } from "uuid"; // Import uuid for generating unique ids
-import { fetchFFmpegCommand } from "../utils/apiUtils";
-
+import { v4 as uuidv4 } from "uuid";
 import { useFFmpegMT } from "../hooks/useFFmpegMT";
+import { fetchFFmpegCommand } from "../utils/apiUtils";
 import { extractAndReplaceFilenames } from "../utils/ffmpegUtils";
 import {
   getMimeType,
@@ -14,6 +13,18 @@ import {
 } from "../utils/fileUtils";
 import FileItem, { FileItemData } from "./FileItem";
 import FileUploadButton from "./FileUploadButton";
+
+// Dynamic imports for FFmpeg-related modules
+// @ts-ignore
+const FFmpeg = dynamic(
+  // @ts-ignore
+  () => import("@ffmpeg/ffmpeg").then((mod) => mod.FFmpeg),
+  { ssr: false }
+);
+const fetchFile = dynamic(
+  () => import("@ffmpeg/util").then((mod) => mod.fetchFile),
+  { ssr: false }
+);
 
 interface Message {
   id: string; // Unique identifier for each message
@@ -26,6 +37,7 @@ interface Message {
 export default function FFmpegComponent() {
   const [instruction, setInstruction] = useState("");
   const [messages, setMessages] = useState<Message[]>([]);
+
   const { ffmpeg, loaded, message, progress } = useFFmpegMT();
 
   const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -149,7 +161,9 @@ export default function FFmpegComponent() {
         removeExtension(file.name)
       );
 
-      await ffmpeg.writeFile(extracted.newInput, await fetchFile(file));
+      const fetchFileModule = await fetchFile;
+      // @ts-ignore
+      await ffmpeg.writeFile(extracted.newInput, await fetchFileModule(file));
       console.log("Transcoding:", extracted.args);
       await ffmpeg.exec(extracted.args);
       const data = await ffmpeg.readFile(extracted.newOutput);
