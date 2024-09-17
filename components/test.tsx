@@ -68,23 +68,21 @@ export default function FFmpegComponent() {
       return;
     }
 
-    // const processingMessageId = uuidv4();
     const processingFileItems: FileItemData[] = latestMessage.fileItems.map(
       (fileItem) => ({
         ...fileItem,
-        status: "processing",
+        status: "processing", // Update only serializable data
       })
     );
 
     const newMessage: Message = {
       id: uuidv4(),
-      fileItems: processingFileItems,
+      fileItems: processingFileItems, // This contains file objects and status only
       role: "output",
       text: instruction,
     };
 
-    setInstruction(""); // Clear the instruction input
-    // Add a new message with the files in "processing" state
+    setInstruction(""); // Clear instruction input
     setMessages((prevMessages) => [...prevMessages, newMessage]);
 
     const { ffmpeg_command } = await fetchFFmpegCommand(
@@ -92,24 +90,24 @@ export default function FFmpegComponent() {
       replaceFilename(processingFileItems[0].file.name, "input")
     );
 
-    // Update the processing message with the ffmpeg command
+    // Update the message with the FFmpeg command
     updateMessage(newMessage.id, { ffmpegCommand: ffmpeg_command });
 
     for (const fileItem of processingFileItems) {
       try {
         const newOutputFile = await transcode(ffmpeg_command, fileItem.file);
 
-        // Update the processing message with the "completed" status
+        // Mark as completed if transcoding succeeds
         if (newOutputFile)
           updateFile(newMessage.id, fileItem.id, {
             status: "completed",
-            file: newOutputFile,
+            file: newOutputFile, // Return new file here
             progress: 1,
           });
       } catch (error) {
         console.error("Error during transcoding:", error);
 
-        // Update the processing message with the "failed" status
+        // Mark as failed if an error occurs
         updateFile(newMessage.id, fileItem.id, {
           status: "failed",
           progress: 1,
@@ -150,12 +148,14 @@ export default function FFmpegComponent() {
       const tempInputFilename = replaceFilename(file.name, uuidv4());
       const tempOutputFilename = replaceFilename(file.name, uuidv4());
 
+      // Extract and replace filenames in the ffmpeg command
       const extracted = extractAndReplaceFilenames(
         ffmpegCommand,
         tempInputFilename,
         tempOutputFilename
       );
       if (!extracted) throw new Error("Error extracting filenames");
+
       const outputFilename = replaceFilename(
         extracted.output,
         removeExtension(file.name)
@@ -163,10 +163,21 @@ export default function FFmpegComponent() {
 
       const fetchFileModule = await fetchFile;
       // @ts-ignore
-      await ffmpeg.writeFile(extracted.newInput, await fetchFileModule(file));
+      // Ensure only File data is passed to the worker (avoid non-serializable data)
+      const fileData = await fetchFileModule(file);
+
+      // Only pass serializable data to ffmpeg worker
+      await ffmpeg.writeFile(extracted.newInput, fileData);
+
       console.log("Transcoding:", extracted.args);
+
+      // Execute the ffmpeg command
       await ffmpeg.exec(extracted.args);
+
+      // Read the output file from ffmpeg worker
       const data = await ffmpeg.readFile(extracted.newOutput);
+
+      // Create a new File object with the output data and return it
       return new File([data], outputFilename, {
         type: getMimeType(extracted.newOutput),
       });

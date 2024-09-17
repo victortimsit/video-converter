@@ -18,16 +18,19 @@ export function useFFmpegMT() {
       ffmpegRef.current = new FFmpeg();
       const ffmpeg = ffmpegRef.current;
 
+      // Handle log messages (ensure only strings are passed)
+
       // @ts-ignore
       ffmpeg.on("log", ({ message }) => {
+        setMessage(message); // Make sure this is always a string
         console.log(message);
-        setMessage(message);
       });
 
       // @ts-ignore
+      // Handle progress updates (ensure only numbers/serializable data)
       ffmpeg.on("progress", ({ progress, time }) => {
+        setProgress(progress); // Progress should always be a number
         console.log(`Progress: ${progress}, time: ${time}`);
-        setProgress(progress);
       });
 
       await ffmpeg.load({
