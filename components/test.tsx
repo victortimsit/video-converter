@@ -148,7 +148,6 @@ export default function FFmpegComponent() {
       const tempInputFilename = replaceFilename(file.name, uuidv4());
       const tempOutputFilename = replaceFilename(file.name, uuidv4());
 
-      // Extract and replace filenames in the ffmpeg command
       const extracted = extractAndReplaceFilenames(
         ffmpegCommand,
         tempInputFilename,
@@ -161,20 +160,29 @@ export default function FFmpegComponent() {
         removeExtension(file.name)
       );
 
-      const fetchFileModule = await fetchFile;
-      // @ts-ignore
-      // Ensure only File data is passed to the worker (avoid non-serializable data)
-      const fileData = await fetchFileModule(file);
+      // Use FileReader to read the file into an ArrayBuffer
+      const fileBuffer = await new Promise<Uint8Array>((resolve, reject) => {
+        const reader = new FileReader();
+        reader.onload = () => {
+          resolve(new Uint8Array(reader.result as ArrayBuffer));
+        };
+        reader.onerror = reject;
+        reader.readAsArrayBuffer(file); // Read the file as an ArrayBuffer
+      });
 
-      // Only pass serializable data to ffmpeg worker
-      await ffmpeg.writeFile(extracted.newInput, fileData);
+      // Check if fileBuffer is valid
+      if (!(fileBuffer instanceof Uint8Array)) {
+        throw new Error("Invalid file buffer format.");
+      }
+
+      // Use ffmpeg.writeFile safely
+      await ffmpeg.writeFile(extracted.newInput, fileBuffer);
 
       console.log("Transcoding:", extracted.args);
 
       // Execute the ffmpeg command
       await ffmpeg.exec(extracted.args);
 
-      // Read the output file from ffmpeg worker
       const data = await ffmpeg.readFile(extracted.newOutput);
 
       // Create a new File object with the output data and return it

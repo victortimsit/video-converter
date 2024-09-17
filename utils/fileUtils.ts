@@ -39,20 +39,23 @@ export function getMimeType(filename: string): string {
   return extension ? mimeTypes[extension] : mimeTypes.default;
 }
 
-export function replaceFilename(filename: string, newName: string): string {
-  // Find the last dot in the filename to separate the name and the extension
-  const lastDotIndex = filename.lastIndexOf(".");
+// export function replaceFilename(filename: string, newName: string): string {
+//   // Find the last dot in the filename to separate the name and the extension
+//   const lastDotIndex = filename.lastIndexOf(".");
 
-  if (lastDotIndex === -1) {
-    // No extension found, just return the new name
-    return newName;
-  }
+//   if (lastDotIndex === -1) {
+//     // No extension found, just return the new name
+//     return newName;
+//   }
 
-  // Get the extension from the original filename
-  const extension = filename.slice(lastDotIndex);
+//   // Get the extension from the original filename
+//   const extension = filename.slice(lastDotIndex);
 
-  // Return the new filename with the original extension
-  return `${newName}${extension}`;
+//   // Return the new filename with the original extension
+//   return `${newName}${extension}`;
+// }
+export function replaceFilename(originalFilename: string, newFilename: string) {
+  return originalFilename.replace(/[^.]+$/, "") + newFilename;
 }
 
 export function removeExtension(filename: string): string {
